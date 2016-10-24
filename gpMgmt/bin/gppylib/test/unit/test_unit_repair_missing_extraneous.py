@@ -70,5 +70,47 @@ class RepairMissingExtraneousTestCase(GpTestCase):
         self.assertEqual(delete_sql, 'BEGIN;set allow_system_table_mods="dml";'
                                      'delete from "pg_attribut""e" where "attrelid" in (5);COMMIT;')
 
+    def test_get_delete_sql__with_one_pkey_one_issue(self):
+        issues = [('!!', 'cmax', "extra", '{1,2}'),]
+        self.subject = RepairMissingExtraneous(self.table_name, issues, tuple(["oprname"]))
+        oids = None
+        delete_sql = self.subject.get_delete_sql(oids)
+        self.assertEqual(delete_sql, 'BEGIN;set allow_system_table_mods="dml";'
+                                     'delete from "pg_attribut""e" where oprname = \'!!\';COMMIT;')
+
+    def test_get_delete_sql__with_one_pkey_mult_issues(self):
+        issues = [('!!', 'cmax', "missing", '{1,2}'),
+                  ('8!', 'cmax', "extra", '{1,2}'),
+                  ('*!', 'cmax', "missing", '{2,3}'),
+                  ('!!', 'cmax', "extra", '{2,3}')]
+        self.subject = RepairMissingExtraneous(self.table_name, issues, tuple(["oprname"]))
+        oids = None
+        delete_sql = self.subject.get_delete_sql(oids)
+        self.assertEqual(delete_sql, 'BEGIN;set allow_system_table_mods="dml";'
+                                     'delete from "pg_attribut""e" where oprname = \'!!\';'
+                                     'delete from "pg_attribut""e" where oprname = \'8!\';'
+                                     'delete from "pg_attribut""e" where oprname = \'*!\';'
+                                     'delete from "pg_attribut""e" where oprname = \'!!\';COMMIT;')
+
+    def test_get_delete_sql__with_multiple_pkey_mult_issue(self):
+        issues = [('!!', 48920, 0, 1, 'cmax', "missing", '{1,2}'),
+                  ('8!', 15, 1, 3, 'cmax', "extra", '{1,2}'),
+                  ('*!', 48920, 2, 3, 'cmax', "missing", '{2,3}'),
+                  ('!!', 11, 2, 3, 'cmax', "extra", '{2,3}')]
+        self.subject = RepairMissingExtraneous(self.table_name, issues, tuple(["oprname","oprnamespace","oprleft","oprright"]))
+        oids = None
+        delete_sql = self.subject.get_delete_sql(oids)
+        self.assertEqual(delete_sql, 'BEGIN;set allow_system_table_mods="dml";'
+                                     'delete from "pg_attribut""e" where oprname = \'!!\' and oprnamespace = \'48920\''
+                                                                         ' and oprleft = \'0\' and oprright = \'1\';'
+                                     'delete from "pg_attribut""e" where oprname = \'8!\' and oprnamespace = \'15\''
+                                                                         ' and oprleft = \'1\' and oprright = \'3\';'
+                                     'delete from "pg_attribut""e" where oprname = \'*!\' and oprnamespace = \'48920\''
+                                                                         ' and oprleft = \'2\' and oprright = \'3\';'
+                                     'delete from "pg_attribut""e" where oprname = \'!!\' and oprnamespace = \'11\''
+                                                                         ' and oprleft = \'2\' and oprright = \'3\';'
+                                     'COMMIT;')
+
+
 if __name__ == '__main__':
     run_tests()

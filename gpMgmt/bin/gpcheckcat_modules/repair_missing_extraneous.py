@@ -5,19 +5,39 @@ from gppylib.operations.backup_utils import escapeDoubleQuoteInSQLString
 class RepairMissingExtraneous:
 
     def __init__(self, catalog_name,  issues, pk_name):
-        self._catalog_name = catalog_name
+        self._escaped_catalog_name = escapeDoubleQuoteInSQLString(catalog_name)
         self._issues = issues
-        if pk_name is None:
-            pk_name = 'oid'
         self._pk_name = pk_name
+        self._is_tuple = type(self._pk_name) is tuple
+
+    # TODO: figure out when to use "oid"
+
+    def _generate_delete_sql_for_oid(self, oids):
+        escaped_pk_name = escapeDoubleQuoteInSQLString(self._pk_name)
+        delete_sql = 'BEGIN;set allow_system_table_mods="dml";delete from {0} where {1} in ({2});COMMIT;'
+        return delete_sql.format(self._escaped_catalog_name, escaped_pk_name, ','.join(str(oid) for oid in oids))
+
+    def _generate_delete_sql_for_pkeys(self):
+        delete_sql = 'BEGIN;set allow_system_table_mods="dml";'
+        for issue in self._issues:
+            delete_issue_sql = 'delete from {0} where '
+            for pk, issue_col in zip(self._pk_name, issue):
+                operator = " and " if pk != self._pk_name[-1] else ";"
+                add_on = "{pk} = '{col}'{operator}".format(pk=pk,
+                                                            col=str(issue_col),
+                                                            operator=operator)
+                delete_issue_sql += add_on
+            delete_issue_sql = delete_issue_sql.format(self._escaped_catalog_name)
+            delete_sql += delete_issue_sql
+        delete_sql += 'COMMIT;'
+        return delete_sql
 
     def get_delete_sql(self, oids):
-        escaped_catalog_name = escapeDoubleQuoteInSQLString(self._catalog_name)
-        escaped_pk_name = escapeDoubleQuoteInSQLString(self._pk_name)
-
-        delete_sql = 'BEGIN;set allow_system_table_mods="dml";delete from {0} where {1} in ({2});COMMIT;'
-
-        return delete_sql.format(escaped_catalog_name, escaped_pk_name, ','.join(str(oid) for oid in oids))
+        if self._is_tuple:
+            # create del sql for multiple pkeys
+            return self._generate_delete_sql_for_pkeys()
+        else:
+            return self._generate_delete_sql_for_oid(oids)
 
     def get_segment_to_oid_mapping(self, all_seg_ids):
         if not self._issues:
