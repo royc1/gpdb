@@ -318,7 +318,7 @@ class GpCheckCatTestCase(GpTestCase):
 
         self.subject.runOneCheck("missing_extraneous")
 
-        self.assertEquals(aTable.getPrimaryKey.call_count, 2)
+        self.assertEquals(aTable.getPrimaryKey.call_count, 1)
         self.subject.setError.assert_called_once_with(self.subject.ERROR_REMOVE)
 
 

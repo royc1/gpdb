@@ -2859,12 +2859,7 @@ def _checkAllTablesForMissingEntries():
         _, pk_name = getPrimaryKeyColumn(catalog_name, catalog_table_obj.getPrimaryKey())
         # We do this check in this function rather than getPrimaryKeyColumn as
         # it is used in checkACL and we do not want to modify that functionality
-        if pk_name is None and not catalog_table_obj.tableHasConsistentOids():
-            pk_names = catalog_table_obj.getPrimaryKey()
-            pk_names_tuple = tuple(pk_names)
-            catalog_issues[(catalog_name, pk_names_tuple)] = issues
-        else:
-            catalog_issues[(catalog_name, 'oid' if pk_name is None else pk_name )] = issues
+        catalog_issues[(catalog_table_obj, pk_name)] = issues
     return catalog_issues
 # -------------------------------------------------------------------------------
 
@@ -3661,10 +3656,12 @@ def do_repair(sql_repair_contents, issue_type, description):
 def do_repair_for_extra(catalog_issues):
     setError(ERROR_REMOVE)
     repair_dir_path = ""
-    for (catalog_name, pk_name), issues in catalog_issues.iteritems():
+    for (catalog_table_obj, pk_name), issues in catalog_issues.iteritems():
         try:
             repair_obj = Repair(context=GV, issue_type="extra", desc="Removing extra entries")
-            repair_dir_path = repair_obj.create_repair_for_extra_missing(catalog_name=catalog_name, issues=issues, pk_name=pk_name)
+            repair_dir_path = repair_obj.create_repair_for_extra_missing(catalog_table_obj=catalog_table_obj,
+                                                                         issues=issues,
+                                                                         pk_name=pk_name)
         except Exception, ex:
             logger.fatal(str(ex))
 
