@@ -32,13 +32,12 @@ class RepairMissingExtraneous:
         return delete_sql
 
     def get_delete_sql(self, oids):
-        if self._pk_name is None and not \
-           self.catalog_table_obj.tableHasConsistentOids():
-            pk_names = tuple(self.catalog_table_obj.getPrimaryKey())
-            return self._generate_delete_sql_for_pkeys(pk_names=pk_names)
+        if self.catalog_table_obj.tableHasConsistentOids():
+            pk_name = 'oid' if self._pk_name is None else self._pk_name
+            return self._generate_delete_sql_for_oid(pk_name=pk_name, oids=oids)
 
-        pk_name = 'oid' if self._pk_name is None else self._pk_name
-        return self._generate_delete_sql_for_oid(pk_name=pk_name, oids=oids)
+        pk_names = tuple(self.catalog_table_obj.getPrimaryKey())
+        return self._generate_delete_sql_for_pkeys(pk_names=pk_names)
 
     def get_segment_to_oid_mapping(self, all_seg_ids):
         if not self._issues:
