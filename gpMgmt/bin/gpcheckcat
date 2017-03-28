@@ -2979,25 +2979,25 @@ def missingEntryQuery(max_content, catname, pkey, castedPkey):
 
           -- distribute catalog table from master, so that we can avoid to gather
           CREATE TEMPORARY TABLE _tmp_master ON COMMIT DROP AS
-              SELECT gp_segment_id segid, {primary_key} FROM {catalog};
-          SELECT {oidcasted_pk}, exists, array_agg(segid order by segid) as segids
+              SELECT gp_segment_id contentid, {primary_key} FROM {catalog};
+          SELECT {oidcasted_pk}, exists, array_agg(contentid order by contentid) as contentids
           FROM
           (
             SELECT ideal.*,
-                   case when actual.segid is null then 'missing' else 'extra' end as exists,
-                   count(*) over (partition by {primary_key}, actual.segid is null) as subcount
+                   case when actual.contentid is null then 'missing' else 'extra' end as exists,
+                   count(*) over (partition by {primary_key}, actual.contentid is null) as subcount
             FROM (
-                 SELECT segid, {primary_key}
+                 SELECT contentid, {primary_key}
                  FROM(  SELECT distinct {primary_key} FROM _tmp_master
                         UNION
                         SELECT distinct {primary_key} FROM gp_dist_random('{catalog}') ) all_pks,
-                      ( SELECT distinct content as segid from gp_segment_configuration) all_segs
+                      ( SELECT distinct content as contentid from gp_segment_configuration) all_segs
                ) ideal
                LEFT OUTER JOIN
-               ( SELECT segid, {primary_key} FROM _tmp_master
+               ( SELECT contentid, {primary_key} FROM _tmp_master
                  UNION ALL
-                 SELECT gp_segment_id as segid, {primary_key} FROM gp_dist_random('{catalog}')
-               ) actual USING (segid, {primary_key})
+                 SELECT gp_segment_id as contentid, {primary_key} FROM gp_dist_random('{catalog}')
+               ) actual USING (contentid, {primary_key})
           ) missing_extra
           WHERE subcount <= ({max_content}+2)/2.0
           GROUP BY {oidcasted_pk}, exists;
@@ -3767,11 +3767,8 @@ def getCatalog():
 # -------------------------------------------------------------------------------
 def getReportConfiguration():
     cfg = {}
-    for dbid, each in GV.cfg.iteritems():
-        if each['content'] == -1:
-            segname = 'master'
-        else:
-            segname = 'seg' + str(each['content'] + 1)
+    for _, each in GV.cfg.iteritems():
+        segname = 'content ' + str(each['content'])
         cfg[each['content']] = {'segname': segname,
                                 'hostname': each['hostname'],
                                 'port': each['port']}
@@ -3929,7 +3926,7 @@ def getResourceTypeOid(oid):
 def processMissingDuplicateEntryResult(catname, colname, allValues, type):
     # type = {"missing" | "duplicate"}
     '''
-    colname:       proname | pronamespace | proargtypes | exists  | segids
+    colname:       proname | pronamespace | proargtypes | exists  | contentids
     allValues:         add | 2200         | 23 23       | extra   | {2,3}
                      scube | 2200         | 1700        | missing | {2}
                scube_accum | 2200         | 1700 1700   | missing | {2}
