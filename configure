@@ -9569,7 +9569,7 @@ if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 else
-  as_fn_error $? "libapr-1 is required for gpfdist" "$LINENO" 5
+  as_fn_error $? "libapr-1 is required by gpfdist and gpperfmon" "$LINENO" 5
 fi
 
 
@@ -9829,7 +9829,7 @@ if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 else
-  as_fn_error $? "libapr-1 is required for gpfdist" "$LINENO" 5
+  as_fn_error $? "libapr-1 is required by gpfdist and gpperfmon" "$LINENO" 5
 fi
 
 
@@ -9900,6 +9900,7 @@ else
   as_fn_error $? "apu-1-config is required for gpperfmon, unable to find binary" "$LINENO" 5
 fi
 
+  GPAC_PATH_NET_SNMP_CONFIG
   _LIBS="$LIBS"
   LIBS="$LIBS $apu_link_ld_libs"
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing event_add" >&5
@@ -9957,7 +9958,7 @@ if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 else
-  as_fn_error $? "libevent is required for gpfdist" "$LINENO" 5
+  as_fn_error $? "libevent is required for gpperfrmon" "$LINENO" 5
 fi
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing apr_queue_push" >&5

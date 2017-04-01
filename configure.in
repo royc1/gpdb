@@ -1219,6 +1219,7 @@ fi
 if test "$enable_gpperfmon" = yes; then
   CHECK_APR()
   GPAC_PATH_APU_1_CONFIG
+  GPAC_PATH_NET_SNMP_CONFIG
   _LIBS="$LIBS"
   LIBS="$LIBS $apu_link_ld_libs"
   AC_SEARCH_LIBS(event_add, [event], [], [AC_MSG_ERROR([libevent is required for gpperfrmon])])
