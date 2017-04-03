@@ -28,7 +28,7 @@ all : devel
 .PHONY : autoconf
 
 # Internal functions which are invoked by other rules within this makefile
-.PHONY : mkgpfdist mkgpperfmon copydocs mgmtcopy copylibs
+.PHONY : mkgpfdist copydocs mgmtcopy copylibs
 .PHONY : greenplum_path RECONFIG HOMEDEP GPROOTDEP GPROOTDEP GPROOTFAIL
 .PHONY : gccVersionCheck clients loaders connectivity gppkg
 
@@ -84,13 +84,11 @@ DISTPATH=$(GPROOT)/$(GPDIR)
 CLIENTDISTPATH=$(GPROOT)/$(CLIENTDIR)
 CONNECTIVITYDISTPATH=$(GPROOT)/$(CONNECTIVITYDIR)
 LOADERSDISTPATH=$(GPROOT)/$(LOADERSDIR)
-GPPERFMONDISTPATH=$(GPROOT)
 GPPKGDISTPATH=$(GPROOT)
 
 ifeq "$(DEVPATH)" ""
 BLD_HOME=$(HOME)
 DEVPATH=$(BLD_HOME)/$(GPDIR)
-GPPERFMONDEVPATH=$(BLD_HOME)
 GPPKGDEVPATH=$(BLD_HOME)
 CLIENTDEVPATH=$(BLD_HOME)/$(CLIENTDIR)
 CONNECTIVITYDEVPATH=$(BLD_HOME)/$(CONNECTIVITYDIR)
@@ -98,7 +96,6 @@ LOADERSDEVPATH=$(BLD_HOME)/$(LOADERSDIR)
 else
 # DEVPATH has been passed in as by the build scripts
 GPROOT_DEV=$(dir $(DEVPATH))
-GPPERFMONDEVPATH=$(GPROOT_DEV)
 GPPKGDEVPATH=$(GPROOT_DEV)
 CLIENTDEVPATH=$(GPROOT_DEV)$(CLIENTDIR)
 CONNECTIVITYDEVPATH=$(GPROOT_DEV)$(CONNECTIVITYDIR)
@@ -327,7 +324,6 @@ define BUILD_STEPS
 	#@$(MAKE) mgmtcopy INSTLOC=$(INSTLOC)
 	@$(MAKE) mkpgbouncer INSTLOC=$(INSTLOC) BUILDDIR=$(BUILDDIR)
 	@$(MAKE) mkpgbench INSTLOC=$(INSTLOC) BUILDDIR=$(BUILDDIR)
-	@$(MAKE) mkgpperfmon INSTLOC=$(INSTLOC) BUILDDIR=$(BUILDDIR)
 	@$(MAKE) mkplatform INSTLOC=$(INSTLOC)
 	if [ "$(findstring $(BLD_ARCH),$(SERVER_PLATFORMS))" != "" ]; then \
 	  $(MAKE) mkgpcloud INSTLOC=$(INSTLOC) && \
@@ -433,7 +429,6 @@ devel : INSTLOC=$(DEVPATH)
 devel : CLIENTINSTLOC=$(CLIENTDEVPATH)
 devel : CONNECTIVITYINSTLOC=$(CONNECTIVITYDEVPATH)
 devel : LOADERSINSTLOC=$(LOADERSDEVPATH)
-devel : GPPERFMONINSTLOC=$(GPPERFMONDEVPATH)
 devel : GPPKGINSTLOC=$(GPPKGDEVPATH)
 devel : CONFIGFLAGS+= --enable-cassert --enable-debug --enable-testutils --enable-debugbreak --enable-depend
 ifdef ENABLE_VPATH_BUILD
@@ -454,7 +449,6 @@ dist : INSTLOC=$(DISTPATH)
 dist : CLIENTINSTLOC=$(CLIENTDISTPATH)
 dist : CONNECTIVITYINSTLOC=$(CONNECTIVITYDISTPATH)
 dist : LOADERSINSTLOC=$(LOADERSDISTPATH)
-dist : GPPERFMONINSTLOC=$(GPPERFMONDISTPATH)
 dist : GPPKGINSTLOC=$(GPPKGDISTPATH)
 ifdef ENABLE_VPATH_BUILD
 dist : BUILDDIR=Release
@@ -473,7 +467,6 @@ dist_prof : INSTLOC=$(DISTPATH)
 dist_prof : CLIENTINSTLOC=$(CLIENTDISTPATH)
 dist_prof : CONNECTIVITYINSTLOC=$(CONNECTIVITYDISTPATH)
 dist_prof : LOADERSINSTLOC=$(LOADERSDISTPATH)
-dist_prof : GPPERFMONINSTLOC=$(GPPERFMONDISTPATH)
 dist_prof : CONFIGFLAGS+= --enable-testutils
 ifdef ENABLE_VPATH_BUILD
 dist_prof : BUILDDIR=Release
@@ -678,8 +671,8 @@ else
 
 	# ---- updating the version in required packages ----
 	@$(MAKE) set_scripts_version INSTLOC=$(CONNECTIVITYINSTLOC)
-  cd client/install/src/unix/ && \
-     $(MAKE) TAR=$(TAR) PRODUCT=Connectivity PACKAGE=greenplum-connectivity README=GPConnectUnix VERSION=$(VERSION) INSTALL_SRC=$(CONNECTIVITYINSTLOC) INSTALL_DIR=../../../..
+	cd client/install/src/unix/ && \
+		$(MAKE) TAR=$(TAR) PRODUCT=Connectivity PACKAGE=greenplum-connectivity README=GPConnectUnix VERSION=$(VERSION) INSTALL_SRC=$(CONNECTIVITYINSTLOC) INSTALL_DIR=../../../..
 
 endif
 
@@ -708,7 +701,7 @@ endif
 
 	# ---- Updating the version in required packages ----
 	@$(MAKE) set_scripts_version INSTLOC=$(CLIENTINSTLOC)
-  cd client/install/src/unix/ && \
+	cd client/install/src/unix/ && \
       $(MAKE) TAR=$(TAR) PRODUCT=Clients PACKAGE=greenplum-clients README=GPClientToolsUnix VERSION=`perl -pe 's, ,-,g' ../../../../../VERSION` INSTALL_SRC=$(CLIENTINSTLOC) INSTALL_DIR=../../../..
 
 endif
@@ -761,7 +754,7 @@ endif
 
 	# ---- updating the version in required packages ----
 	@$(MAKE) set_scripts_version INSTLOC=$(LOADERSINSTLOC)
-  cd client/install/src/unix/ && \
+	cd client/install/src/unix/ && \
       $(MAKE) TAR=$(TAR) PRODUCT=Loaders PACKAGE=greenplum-loaders README=GPLoadToolsUnix VERSION=`perl -pe 's, ,-,g' ../../../../../VERSION` INSTALL_SRC=$(LOADERSINSTLOC) INSTALL_DIR=../../../..
 
 endif
@@ -888,19 +881,6 @@ else
 	@cd extensions/pgbouncer/source && ./configure --with-libevent=$(BLD_TOP)/ext/$(BLD_ARCH) --prefix=$(INSTLOC) --enable-evdns
 	$(MAKE) -C extensions/pgbouncer/source install
 endif
-
-mkgpperfmon:
-	@cd $(GPPERFMON) && $(MAKE) BUILDDIR=$(BUILDDIR)
-	cp -p gpperfmon/src/gpmon/gpmmon gpperfmon/src/gpmon/gpsmon $(INSTLOC)/bin
-	cp -p gpperfmon/src/gpmon/gpperfmoncat.sh $(INSTLOC)/bin
-	cp -p gpperfmon/src/gpmon/gpmon_catqrynow.py $(INSTLOC)/sbin
-	cp -p gpperfmon/src/gpmon/gpperfmon_install $(INSTLOC)/bin
-	mkdir -p $(INSTLOC)/lib/gpperfmon
-	cp -p gpperfmon/src/gpmon/gpperfmon3.sql $(INSTLOC)/lib/gpperfmon
-	cp -p gpperfmon/src/gpmon/gpperfmon4.sql $(INSTLOC)/lib/gpperfmon
-	cp -p gpperfmon/src/gpmon/gpperfmon41.sql $(INSTLOC)/lib/gpperfmon
-	cp -p gpperfmon/src/gpmon/gpperfmon42.sql $(INSTLOC)/lib/gpperfmon
-	cp -p gpperfmon/src/gpmon/gpperfmonC.sql $(INSTLOC)/lib/gpperfmon
 
 mkplatform:
 	@cd $(PLATFORM) && $(MAKE)
@@ -1053,7 +1033,6 @@ copylibs : thirdparty-dist copy-nbu-libs
 ifeq "$(findstring $(BLD_ARCH),aix5_ppc_32 aix5_ppc_64 win32 win64)" ""
 	# Copy curl header file
 	cp -rp $(BLD_THIRDPARTY_INCLUDE_DIR)/curl $(INSTLOC)/include/
-	# Copy in openssl files needed by gpperfmon
 endif
 ifeq "$(findstring $(BLD_ARCH),aix5_ppc_32 win32 win64)" ""
 ifneq "$(BLD_ARCH)" "osx104_x86"
