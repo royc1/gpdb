@@ -278,8 +278,7 @@ mirror3=3:sdw2:sdw2-2:52002:53002:54002:/gpdata/mir1/gp3
     <topic id="topic10" xml:lang="en">
       <title>Enabling Alerts and Notifications</title>
       <body>
-        <p>To receive notifications of system events such as segment failures, enable email and/or
-          SNMP alerts. See <xref href="monitor.xml#topic4" type="topic" format="dita"/>.</p>
+        <p>To receive notifications of system events such as segment failures, enable email alerts. See <xref href="monitor.xml#topic4" type="topic" format="dita"/>.</p>
       </body>
     </topic>
     <topic id="topic11" xml:lang="en">

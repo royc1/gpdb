@@ -44,7 +44,6 @@
             <topicref href="topics/g-what-to-log.xml" type="topic"/>
          </topicref>
          <topicref href="topics/g-system-monitoring-parameters.xml" type="topic">
-            <topicref href="topics/g-snmp-alerts.xml" type="topic"/>
             <topicref href="topics/g-email-alerts.xml" type="topic"/>
             <topicref href="topics/g-greenplum-command-center-agent.xml" type="topic"/>
          </topicref>

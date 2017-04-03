@@ -144,9 +144,6 @@
             <topicref href="guc-list.xml#gp_session_id"/>
             <topicref href="guc-list.xml#gp_set_proc_affinity"/>
             <topicref href="guc-list.xml#gp_set_read_only"/>
-            <topicref href="guc-list.xml#gp_snmp_community"/>
-            <topicref href="guc-list.xml#gp_snmp_monitor_address"/>
-            <topicref href="guc-list.xml#gp_snmp_use_inform_or_trap"/>
             <topicref href="guc-list.xml#gp_statistics_pullup_from_child_partition"/>
             <topicref href="guc-list.xml#gp_statistics_use_fkeys"/>
             <topicref href="guc-list.xml#gp_vmem_idle_resource_timeout"/>

@@ -151,9 +151,9 @@
     </section>
     <section id="section5">
       <title>Examples</title>
-      <p>Set the <codeph>gp_snmp_community</codeph> parameter to <codeph>testenv</codeph> in the
+      <p>Set the <codeph>max_connections</codeph> parameter to <codeph>10</codeph> in the
         master host file
-        only:<codeblock>gpconfig -c gp_snmp_community -v testenv --masteronly</codeblock></p>
+        only:<codeblock>gpconfig -c max_connections -v 10 --masteronly</codeblock></p>
       <p>Set the <codeph>max_connections</codeph> setting to 100 on all segments and 10 on the
         master:</p>
       <codeblock>gpconfig -c max_connections -v 100 -m 10</codeblock>

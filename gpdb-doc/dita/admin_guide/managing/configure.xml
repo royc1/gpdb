@@ -807,29 +807,6 @@
     </topic>
     <topic id="topic33" xml:lang="en">
       <title id="kh171299">System Monitoring Parameters</title>
-      <topic id="topic34" xml:lang="en">
-        <title>SNMP Alerts</title>
-        <body>
-          <p>The following parameters send SNMP notifications when events occur.</p>
-          <simpletable id="kh178188">
-            <strow>
-              <stentry>
-                <p>
-                  <codeph>gp_snmp_community</codeph>
-                </p>
-                <p>
-                  <codeph>gp_snmp_monitor_address</codeph>
-                </p>
-              </stentry>
-              <stentry>
-                <p>
-                  <codeph>gp_snmp_use_inform_or_trap</codeph>
-                </p>
-              </stentry>
-            </strow>
-          </simpletable>
-        </body>
-      </topic>
       <topic id="topic35" xml:lang="en">
         <title>Email Alerts</title>
         <body>
