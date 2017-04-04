@@ -289,7 +289,7 @@ extern int	getinternalerrposition(void);
 
 extern int errFatalReturn(bool fatalReturn); /* GPDB: true => return on FATAL error */
 
-extern int errSendAlert(bool sendAlert);		/* GPDB: Send alert via e-mail or SNMP */
+extern int errSendAlert(bool sendAlert);		/* GPDB: Send alert via e-mail */
 
 /*----------
  * Old-style error reporting API: to be used in this way:
@@ -442,7 +442,7 @@ typedef struct ErrorData
 	bool		show_funcname;	/* true to force funcname inclusion */
     bool        omit_location;  /* GPDB: don't add filename:line# and stack trace */
     bool        fatal_return;   /* GPDB: true => return instead of proc_exit() */
-	bool		send_alert;		/* GPDB: send e-mail alert and/or SNMP trap/inform */
+	bool		send_alert;		/* GPDB: send e-mail alert */
 	bool		hide_stmt;		/* true to prevent STATEMENT: inclusion */
 	const char *filename;		/* __FILE__ of ereport() call */
 	int			lineno;			/* __LINE__ of ereport() call */

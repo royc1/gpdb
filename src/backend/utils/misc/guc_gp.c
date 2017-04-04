@@ -321,13 +321,6 @@ int			gp_email_connect_timeout;
 int			gp_email_connect_failures;
 int			gp_email_connect_avoid_duration;
 
-#if USE_SNMP
-char	   *gp_snmp_community;
-char	   *gp_snmp_monitor_address;
-char	   *gp_snmp_use_inform_or_trap;
-char	   *gp_snmp_debug_log;
-#endif
-
 char	   *gp_connectemc_mode;
 #ifdef USE_CONNECTEMC
 EmcConnectModeType_t gp_emcconnect_transport;
@@ -5185,46 +5178,6 @@ struct config_string ConfigureNamesString_gp[] =
 		&gp_email_to,
 		"", NULL, NULL
 	},
-
-#if USE_SNMP
-	{
-		{"gp_snmp_community", PGC_SUSET, LOGGING,
-			gettext_noop("Sets SNMP community name to send alerts (inform or trap messages) to."),
-			NULL,
-			GUC_SUPERUSER_ONLY | GUC_LIST_INPUT
-		},
-		&gp_snmp_community,
-		"public", NULL, NULL
-	},
-	{
-		{"gp_snmp_monitor_address", PGC_SUSET, LOGGING,
-			gettext_noop("Sets the network address to send SNMP alerts (inform or trap messages) to."),
-			NULL,
-			GUC_SUPERUSER_ONLY | GUC_LIST_INPUT
-		},
-		&gp_snmp_monitor_address,
-		"", NULL, NULL
-	},
-	{
-		{"gp_snmp_use_inform_or_trap", PGC_SUSET, LOGGING,
-			gettext_noop("If 'inform', we send alerts as SNMP v2c inform messages, if 'trap', we use SNMP v2 trap messages.."),
-			NULL,
-			GUC_SUPERUSER_ONLY | GUC_LIST_INPUT
-		},
-		&gp_snmp_use_inform_or_trap,
-		"trap", NULL, NULL
-	},
-	{
-		{"gp_snmp_debug_log", PGC_SUSET, DEVELOPER_OPTIONS,
-			gettext_noop("Logs snmp activity to this file for debugging purposes."),
-			NULL,
-			GUC_SUPERUSER_ONLY | GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
-		},
-		&gp_snmp_debug_log,
-		"", NULL, NULL
-	},
-
-#endif
 
 #ifdef USE_CONNECTEMC
 	{

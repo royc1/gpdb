@@ -1249,7 +1249,7 @@ min_detailed_query_time = 60
 # This should be a percentage between 0 and 100 and should be
 # less than the error_disk_space_percentage.  If a filesystem’s 
 # disk space used percentage equals or exceeds this value a 
-# warning will be logged and a warning email/snmp trap may be 
+# warning will be logged and a warning email may be
 # sent.  If this configuration is set to 0 or not specified, no 
 # warnings are sent.
 #warning_disk_space_percentage = 80
@@ -1257,8 +1257,8 @@ min_detailed_query_time = 60
 # This should be a percentage between 0 and 100 and should be 
 # greater than the warning_disk_space_percentage. If a 
 # filesystem’s disk space used percentage equals or exceeds 
-# this value an error will be logged and a error email/snmp 
-# trap may be sent.  If this configuration is set to 0 or not 
+# this value an error will be logged and a error email
+# may be sent.  If this configuration is set to 0 or not
 # specified, no errors are sent.
 #error_disk_space_percentage = 90
 

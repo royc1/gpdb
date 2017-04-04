@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sendalert.c
- *	  Send alerts via SMTP (email) or SNMP INFORM messages.
+ *	  Send alerts via SMTP (email)
  *
  * Copyright (c) 2009, Greenplum
  *
@@ -17,7 +17,7 @@
 #define _POSIX_C_SOURCE 200112L
 #endif
 #include "postgres.h"
-#include "pg_config.h"  /* Adding this helps eclipse see that USE_SNMP is set */
+#include "pg_config.h"  /* todo necessary? */
 
 #include <fcntl.h>
 #include <signal.h>
@@ -53,35 +53,6 @@ extern int	PostPortNumber;
 #include <curl/curl.h>
 #endif
 
-#ifdef USE_SNMP
-#include <net-snmp/net-snmp-config.h>
-#include <net-snmp/definitions.h>
-#include <net-snmp/types.h>
-
-//#include <net-snmp/utilities.h>
-#include <net-snmp/session_api.h>
-#include <net-snmp/pdu_api.h>
-#include <net-snmp/mib_api.h>
-#include <net-snmp/varbind_api.h>
-//#include <net-snmp/config_api.h>
-#include <net-snmp/output_api.h>
-
-
-oid             objid_enterprise[] = { 1, 3, 6, 1, 4, 1, 3, 1, 1 };
-oid             objid_sysdescr[] = { 1, 3, 6, 1, 2, 1, 1, 1, 0 };
-oid             objid_sysuptime[] = { 1, 3, 6, 1, 2, 1, 1, 3, 0 };
-oid             objid_snmptrap[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
-oid				objid_rdbmsrelstate[] = { 1, 3, 6, 1, 2, 1, 39, 1, 9, 1, 1 };
-
-// {iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprises(1) gpdbMIB(31327) gpdbObjects(1) gpdbAlertMsg(1)}
-oid				objid_gpdbAlertMsg[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 1 };
-oid				objid_gpdbAlertSeverity[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 2 };
-oid				objid_gpdbAlertSqlstate[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 3 };
-oid				objid_gpdbAlertDetail[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 4 };
-oid				objid_gpdbAlertSqlStmt[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 5 };
-oid				objid_gpdbAlertSystemName[] = { 1, 3, 6, 1, 4, 1, 31327, 1, 6 };
-#endif
-
 #if defined(HAVE_DECL_CURLOPT_MAIL_FROM) && HAVE_DECL_CURLOPT_MAIL_FROM
 /* state information for messagebody_cb function */
 typedef struct
@@ -99,12 +70,6 @@ static void send_alert_via_email(const GpErrorData * errorData,
 static char *extract_email_addr(char *str);
 static bool SplitMailString(char *rawstring, char delimiter, List **namelist);
 #endif
-
-#ifdef USE_SNMP
-static int send_snmp_inform_or_trap();
-extern pg_time_t	MyStartTime;
-#endif
-
 
 int send_alert_from_chunks(const PipeProtoChunk *chunk,
 		const PipeProtoChunk * saved_chunks_in)
@@ -194,340 +159,6 @@ int send_alert_from_chunks(const PipeProtoChunk *chunk,
 
 	return ret;
 }
-
-#ifdef USE_SNMP
-static int send_snmp_inform_or_trap(const GpErrorData * errorData, const char * subject, const char * severity)
-{
-
-	netsnmp_session session, *ss = NULL;
-	netsnmp_pdu    *pdu, *response;
-	int				status;
-	char            csysuptime[20];
-	static bool 	snmp_initialized = false;
-	static char myhostname[255];	/* gethostname usually is limited to 65 chars out, but make this big to be safe */
-	char	   *rawstring = NULL;
-	List	   *elemlist = NIL;
-	ListCell   *l = NULL;
-
-	/*
-	 * "inform" messages get a positive acknowledgement response from the SNMP manager.
-	 * If it doesn't come, the message might be resent.
-	 *
-	 * "trap" messages are one-way, and we have no idea if the manager received it.
-	 * But, it's faster and cheaper, and no need to retry.  So some people might prefer it.
-	 */
-	bool inform = strcmp(gp_snmp_use_inform_or_trap,"inform") == 0;
-
-
-	if (gp_snmp_monitor_address == NULL || gp_snmp_monitor_address[0] == '\0')
-	{
-		static bool firsttime = 1;
-
-		ereport(firsttime ? LOG : DEBUG1,(errmsg("SNMP inform/trap alerts are disabled")));
-		firsttime = false;
-
-		return -1;
-	}
-
-
-	/*
-	 * SNMP managers are required to handle messages up to at least 484 bytes long, but I believe most existing
-	 * managers support messages up to one packet (ethernet frame) in size, 1472 bytes.
-	 *
-	 * But, should we take that chance?  Or play it safe and limit the message to 484 bytes?
-	 */
-
-	elog(DEBUG2,"send_snmp_inform_or_trap");
-
-	if (!snmp_initialized)
-	{
-		snmp_enable_stderrlog();
-
-		if (gp_snmp_debug_log != NULL && gp_snmp_debug_log[0] != '\0')
-		{
-			snmp_enable_filelog(gp_snmp_debug_log, 1);
-
-			//debug_register_tokens("ALL");
-			snmp_set_do_debugging(1);
-		}
-
-		/*
-		 * Initialize the SNMP library.  This also reads the MIB database.
-		 */
-		/* Add GPDB-MIB to the list to be loaded */
-		putenv("MIBS=+GPDB-MIB:SNMP-FRAMEWORK-MIB:SNMPv2-CONF:SNMPv2-TC:SNMPv2-TC");
-
-		init_snmp("sendalert");
-
-		snmp_initialized = true;
-
-		{
-			char portnum[16];
-			myhostname[0] = '\0';
-
-			if (gethostname(myhostname, sizeof(myhostname)) == 0)
-			{
-				strcat(myhostname,":");
-				pg_ltoa(PostPortNumber,portnum);
-				strcat(myhostname,portnum);
-			}
-		}
-	}
-
-	/*
-	 * Trap/Inform messages always start with the system up time. (SysUpTime.0)
-	 *
-	 * This presumably would be the uptime of GPDB, not the machine it is running on, I think.
-	 *
-	 * Use Postmaster's "MyStartTime" as a way to get that.
-	 */
-
-	sprintf(csysuptime, "%ld", (long)(time(NULL) - MyStartTime));
-
-
-	/*
-	// ERRCODE_DISK_FULL could be reported vi rbmsMIB rdbmsTraps rdbmsOutOfSpace trap.
-	// But it appears we never generate that error?
-
-	// ERRCODE_ADMIN_SHUTDOWN means SysAdmin aborted somebody's request.  Not interesting?
-
-	// ERRCODE_CRASH_SHUTDOWN sounds interesting, but I don't see that we ever generate it.
-
-	// ERRCODE_CANNOT_CONNECT_NOW means we are starting up, shutting down, in recovery, or Too many users are logged on.
-
-	// abnormal database system shutdown
-	*/
-
-
-
-	/*
-	 * The gpdbAlertSeverity is a crude attempt to classify some of these messages based on severity,
-	 * where OK means everything is running normal, Down means everything is shut down, degraded would be
-	 * for times when some segments are down, but the system is up, The others are maybe useful in the future
-	 *
-	 *  gpdbSevUnknown(0),
-	 *	gpdbSevOk(1),
-	 *	gpdbSevWarning(2),
-	 *	gpdbSevError(3),
-	 *	gpdbSevFatal(4),
-	 *	gpdbSevPanic(5),
-	 *	gpdbSevSystemDegraded(6),
-	 *	gpdbSevSystemDown(7)
-	 */
-
-
-	char detail[MAX_ALERT_STRING+1];
-	snprintf(detail, MAX_ALERT_STRING, "%s", errorData->error_detail);
-	detail[127] = '\0';
-
-	char sqlstmt[MAX_ALERT_STRING+1];
-	char * sqlstmtp = errorData->debug_query_string;
-	if (sqlstmtp == NULL || sqlstmtp[0] == '\0')
-		sqlstmtp = errorData->internal_query;
-	if (sqlstmtp == NULL)
-		sqlstmtp = "";
-
-
-	snprintf(sqlstmt, MAX_ALERT_STRING, "%s", sqlstmtp);
-	sqlstmt[MAX_ALERT_STRING] = '\0';
-
-
-	/* Need a modifiable copy of To list */
-	rawstring = pstrdup(gp_snmp_monitor_address);
-
-	/* Parse string into list of identifiers */
-	if (!SplitMailString(rawstring, ',', &elemlist))
-	{
-		/* syntax error in list */
-		ereport(LOG,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("invalid list syntax for \"gp_snmp_monitor_address\"")));
-		return -1;
-	}
-
-
-	/*
-	 * This session is just a template, and doesn't need to be connected.
-	 * It is used by snmp_add(), which copies this info, opens the new session, and assigns the transport.
-	 */
-	snmp_sess_init( &session );	/* Initialize session to default values */
-	session.version = SNMP_VERSION_2c;
-	session.timeout = SNMP_DEFAULT_TIMEOUT;
-	session.retries = SNMP_DEFAULT_RETRIES;
-	session.remote_port = 162; 							// I think this isn't used by net-snmp any more.
-
-	/*if (strchr(session.peername,':')==NULL)
-		strcat(session.peername,":162");*/
-	session.community = (u_char *)gp_snmp_community;
-	session.community_len = strlen((const char *)session.community);  // SNMP_DEFAULT_COMMUNITY_LEN means "public"
-	session.callback_magic = NULL;
-
-	foreach(l, elemlist)
-	{
-		char	   *cur_gp_snmp_monitor_address = (char *) lfirst(l);
-
-		if (cur_gp_snmp_monitor_address == NULL || cur_gp_snmp_monitor_address[0] == '\0')
-			continue;
-
-		session.peername = cur_gp_snmp_monitor_address;
-		/*
-		 * If we try to "snmp_open( &session )", net-snmp will set up a connection to that
-		 * endpoint on port 161, assuming we are the network monitor, and the other side is an agent.
-		 *
-		 * But we are pretending to be an agent, sending traps to the NM, so we don't need this.
-		 */
-
-		/*if (!snmp_open( &session ))   	// Don't open the session here!
-		{
-			const char     *str;
-			int             xerr;
-			xerr = snmp_errno;
-			str = snmp_api_errstring(xerr);
-			elog(LOG, "snmp_open: %s", str);
-			return -1;
-		}*/
-
-		/*
-		 * This call copies the info from "session" to "ss", assigns the transport, and opens the session.
-		 * We must specify "snmptrap" so the transport will know we want port 162 by default.
-		 */
-		ss = snmp_add(&session,
-					  netsnmp_transport_open_client("snmptrap", cur_gp_snmp_monitor_address),
-					  NULL, NULL);
-		if (ss == NULL) {
-			/*
-			 * diagnose netsnmp_transport_open_client and snmp_add errors with
-			 * the input netsnmp_session pointer
-			 */
-			{
-				char           *err;
-				snmp_error(&session, NULL, NULL, &err);
-				elog(LOG, "send_alert snmp_add of %s failed: %s", cur_gp_snmp_monitor_address, err);
-				free(err);
-			}
-			return -1;
-		}
-
-		/*
-		 * We need to create the pdu each time, as it gets freed when we send a trap.
-		 */
-		pdu = snmp_pdu_create(inform ? SNMP_MSG_INFORM : SNMP_MSG_TRAP2);
-		if (!pdu)
-		{
-			const char     *str;
-			int             xerr;
-			xerr = snmp_errno;
-			str = snmp_api_errstring(xerr);
-			elog(LOG, "Failed to create notification PDU: %s", str);
-			return -1;
-		}
-
-		/*
-		 * Trap/Inform messages always start with the system up time. (SysUpTime.0)
-		 * We use Postmaster's "MyStartTime" as a way to get that.
-		 */
-
-		snmp_add_var(pdu, objid_sysuptime,
-							sizeof(objid_sysuptime) / sizeof(oid),
-							't', (const char *)csysuptime);
-
-	#if 0
-		/*
-		 * In the future, we might want to send RDBMS-MIB::rdbmsStateChange when the system becomes unavailable or
-		 * partially unavailable.  This code, which is not currently used, shows how to build the pdu for
-		 * that trap.
-		 */
-		/* {iso(1) identified-organization(3) dod(6) internet(1) mgmt(2) mib-2(1) rdbmsMIB(39) rdbmsTraps(2) rdbmsStateChange(1)} */
-		snmp_add_var(pdu, objid_snmptrap,
-							sizeof(objid_snmptrap) / sizeof(oid),
-							'o', "1.3.6.1.2.1.39.2.1");  // rdbmsStateChange
-
-
-		snmp_add_var(pdu, objid_rdbmsrelstate,
-							sizeof(objid_rdbmsrelstate) / sizeof(oid),
-							'i', "5");  // 4 = restricted, 5 = unavailable
-	#endif
-
-		/* {iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprises(1) gpdbMIB(31327) gpdbTraps(5) gpdbTrapsList(0) gpdbAlert(1)} */
-
-		/*
-		 * We could specify this trap oid by name, rather than numeric oid, but then if the GPDB-MIB wasn't
-		 * found, we'd get an error.  Using the numeric oid means we can still work without the MIB loaded.
-		 */
-		snmp_add_var(pdu, objid_snmptrap,
-							sizeof(objid_snmptrap) / sizeof(oid),
-							'o', "1.3.6.1.4.1.31327.5.0.1");  // gpdbAlert
-
-
-		snmp_add_var(pdu, objid_gpdbAlertMsg,
-							sizeof(objid_gpdbAlertMsg) / sizeof(oid),
-							's', subject);  // SnmpAdminString = UTF-8 text
-		snmp_add_var(pdu, objid_gpdbAlertSeverity,
-							sizeof(objid_gpdbAlertSeverity) / sizeof(oid),
-							'i', (char *)severity);
-
-		snmp_add_var(pdu, objid_gpdbAlertSqlstate,
-							sizeof(objid_gpdbAlertSqlstate) / sizeof(oid),
-							's', errorData->sql_state);
-
-		snmp_add_var(pdu, objid_gpdbAlertDetail,
-							sizeof(objid_gpdbAlertDetail) / sizeof(oid),
-							's', detail); // SnmpAdminString = UTF-8 text
-
-		snmp_add_var(pdu, objid_gpdbAlertSqlStmt,
-							sizeof(objid_gpdbAlertSqlStmt) / sizeof(oid),
-							's', sqlstmt); // SnmpAdminString = UTF-8 text
-
-		snmp_add_var(pdu, objid_gpdbAlertSystemName,
-							sizeof(objid_gpdbAlertSystemName) / sizeof(oid),
-							's', myhostname); // SnmpAdminString = UTF-8 text
-
-
-
-		elog(DEBUG2,"ready to send to %s",cur_gp_snmp_monitor_address);
-		if (inform)
-			status = snmp_synch_response(ss, pdu, &response);
-		else
-			status = snmp_send(ss, pdu) == 0;
-
-		elog(DEBUG2,"send, status %d",status);
-		if (status != STAT_SUCCESS)
-		{
-			/* Something went wrong */
-			if (ss)
-			{
-				char           *err;
-				snmp_error(ss, NULL, NULL, &err);
-				elog(LOG, "sendalert failed to send %s: %s", inform ? "inform" : "trap", err);
-				free(err);
-			}
-			else
-			{
-				elog(LOG, "sendalert failed to send %s: %s", inform ? "inform" : "trap", "Something went wrong");
-			}
-			if (!inform)
-				snmp_free_pdu(pdu);
-		}
-		else if (inform)
-			snmp_free_pdu(response);
-
-		snmp_close(ss);
-		ss = NULL;
-
-	}
-
-	/*
-	 * don't do the shutdown, to avoid the cost of starting up snmp each time
-	 * (plus, it doesn't seem to work to run snmp_init() again after a shutdown)
-	 *
-	 * It would be nice to call this when the syslogger is shutting down.
-	 */
-	/*snmp_shutdown("sendalert");*/
-
-
-	return 0;
-}
-#endif
 
 #if defined(HAVE_DECL_CURLOPT_MAIL_FROM) && HAVE_DECL_CURLOPT_MAIL_FROM
 static void
@@ -783,8 +414,6 @@ int send_alert(const GpErrorData * errorData)
 	char subject[128];
 	bool send_via_email = true;
 	char email_priority[2];
-	bool send_via_snmp = true;
-	char snmp_severity[2];
 
 	static char previous_subject[128];
 	pg_time_t current_time;
@@ -807,9 +436,7 @@ int send_alert(const GpErrorData * errorData)
 	set_alert_severity(errorData,
 						subject,
 						&send_via_email,
-						email_priority,
-						&send_via_snmp,
-						snmp_severity);
+						email_priority);
 
 
 	/*
@@ -856,13 +483,13 @@ int send_alert(const GpErrorData * errorData)
 			current_time = (pg_time_t)time(NULL);
 			/*
 			 * This is the same alert as last time.  Limit us to one repeat alert every 30 seconds
-			 * to avoid spamming the sysAdmin's mailbox or the snmp network monitor.
+			 * to avoid spamming the sysAdmin's mailbox.
 			 *
 			 * We don't just turn off the alerting until a different message comes in, because
 			 * if enough time has passed, this message might (probably?) refer to a new issue.
 			 *
 			 * Note that the message will still exist in the log, it's just that we won't
-			 * send it via e-mail or snmp notification.
+			 * send it via e-mail.
 			 */
 
 			if (current_time - previous_time < 30)
@@ -878,13 +505,6 @@ int send_alert(const GpErrorData * errorData)
 	strcpy(previous_subject, subject);
 	previous_time = (pg_time_t)time(NULL);
 	memcpy(&previous_fix_fields,&errorData->fix_fields,sizeof(GpErrorDataFixFields));
-
-#ifdef USE_SNMP
-	if (send_via_snmp)
-		send_snmp_inform_or_trap(errorData, subject, snmp_severity);
-	else 
-		elog(DEBUG4,"Not sending via SNMP");
-#endif
 
 #if defined(HAVE_DECL_CURLOPT_MAIL_FROM) && HAVE_DECL_CURLOPT_MAIL_FROM
 	if (send_via_email)

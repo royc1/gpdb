@@ -685,15 +685,6 @@ AS_IF([test "$enable_codegen" = yes],
 ]) # fi
 
 #
-# --enable-snmp enables snmp mib and trap/inform
-#
-PGAC_ARG_BOOL(enable, snmp, no, [  --enable-snmp           enable snmp for MIB and alerts via TRAP/INFORM],
-              [AC_DEFINE([USE_SNMP], 1,
-                         [Define to 1 to build with snmp capabilities. (--enable-snmp)])])
-AC_MSG_RESULT([checking whether to build with snmp... $enable_snmp])
-AC_SUBST(enable_snmp)
-
-#
 # --enable-connectemc enables connect emc support
 #
 PGAC_ARG_BOOL(enable, connectemc, no,  [  --enable-connectemc     enable connect emc support],
@@ -1219,7 +1210,6 @@ fi
 if test "$enable_gpperfmon" = yes; then
   CHECK_APR()
   GPAC_PATH_APU_1_CONFIG
-  GPAC_PATH_NET_SNMP_CONFIG
   _LIBS="$LIBS"
   LIBS="$LIBS $apu_link_ld_libs"
   AC_SEARCH_LIBS(event_add, [event], [], [AC_MSG_ERROR([libevent is required for gpperfrmon])])
@@ -1268,11 +1258,6 @@ fi
 
 # Check for bzip2
 AC_SEARCH_LIBS(BZ2_bzDecompress, bz2)
-
-# Check for net-snmp
-if test "$enable_snmp" = yes ; then
-	AC_CHECK_LIB(netsnmp,  netsnmp_ds_set_string,  [], [AC_MSG_ERROR([library 'netsnmp' is required for snmp support])])
-fi
 
 if test "$with_libxslt" = yes ; then
   AC_CHECK_LIB(xslt, xsltCleanupGlobals, [], [AC_MSG_ERROR([library 'xslt' is required for XSLT support])])
@@ -1462,13 +1447,6 @@ case $template in
     AC_CHECK_HEADERS([numa.h])
     ;;
 esac
-
-# net-snmp
-if test "$enable_snmp" = yes; then
-	AC_CHECK_HEADERS([net-snmp/net-snmp-config.h], [],
-					[AC_MSG_ERROR([header file <<net-snmp/net-snmp-config.h> is required for snmp support])])
-fi
-
 
 # realtime library header
 if test "$with_rt" = yes; then
@@ -1673,9 +1651,6 @@ fi
 # checking for these standard libc functions.
 pgac_save_LIBS="$LIBS"
 LIBS=`echo "$LIBS" | sed -e 's/-ledit//g' -e 's/-lreadline//g'`
-
-# net-snmp has the same problem..
-LIBS=`echo "$LIBS" | sed -e 's/-lnetsnmp//g'`
 
 AC_REPLACE_FUNCS([crypt fseeko getopt getpeereid getrusage inet_aton random rint srandom strdup strerror strlcat strlcpy strtol strtoul unsetenv])
 

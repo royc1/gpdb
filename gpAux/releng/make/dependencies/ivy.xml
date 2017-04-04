@@ -43,7 +43,6 @@
       <dependency org="libevent"        name="libevent"        rev="1.4.6"          conf="osx106_x86->osx106_x86" />
       <dependency org="metaparadigm"    name="json-c"          rev="0.6"            conf="osx106_x86->osx106_x86" />
       <dependency org="mit"             name="krb5"            rev="1.11.3"         conf="osx106_x86->osx106_x86" />
-      <dependency org="net-snmp"        name="net-snmp"        rev="5.5"            conf="osx106_x86->osx106_x86" />
       <dependency org="xmlsoft"         name="libxml2"         rev="2.7.8"          conf="osx106_x86->osx106_x86" />
       <dependency org="xmlsoft"         name="libxslt"         rev="1.1.24"         conf="osx106_x86->osx109_x86_32" />
       <dependency org="Samba"           name="ccache"          rev="3.2.3"          conf="osx106_x86->osx106_x86;rhel7_x86_64->rhel5_x86_64;rhel6_x86_64->rhel5_x86_64;suse11_x86_64->suse11_x86_64" />

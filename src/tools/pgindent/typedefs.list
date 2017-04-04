@@ -1004,9 +1004,6 @@ glob_t
 gnet_request_t
 __gnuc_va_list
 GpAutoStatsModeValue
-gpdb_snmp_device_function
-gpdb_snmp_format_function
-GPDB_SNMP_STATUS
 gpdb_status_code_conversion_function
 GpDispatchCommandType
 GpErrorData

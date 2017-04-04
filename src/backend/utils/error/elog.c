@@ -1351,7 +1351,7 @@ getinternalerrposition(void)
 }
 
 /*
- * GPDB: errSendAlert -- set flag indicating the error should trigger an alert via e-mail or SNMP
+ * GPDB: errSendAlert -- set flag indicating the error should trigger an alert via e-mail
  */
 int
 errSendAlert(bool sendAlert)
